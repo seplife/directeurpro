@@ -9,13 +9,10 @@ import {
   CheckCircle2,
   Calendar
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-
 export const ReportsModule: React.FC = () => {
   const { school, academicYear, schoolHealth, students, budget, alerts } = useApp();
   const [selectedReportType, setSelectedReportType] = useState<string>('direction');
+  const [isExporting, setIsExporting] = useState<'pdf' | 'excel' | null>(null);
 
   const reportTypes = [
     { id: 'direction', title: 'Bilan de Direction Trimestriel', desc: 'Synthèse 360° du School Health Score, priorités stratégiques et arbitrages.' },
@@ -24,7 +21,12 @@ export const ReportsModule: React.FC = () => {
     { id: 'viescolaire', title: 'Rapport d’Assiduité & Climat Scolaire', desc: 'Statistiques d’absentéisme, retards récurrents et sanctions disciplinaires.' },
   ];
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    setIsExporting('pdf');
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.setTextColor(14, 142, 233);
@@ -76,9 +78,13 @@ export const ReportsModule: React.FC = () => {
     doc.text("M. Kouamé N’Guessan (Directeur)", 130, finalY + 42);
 
     doc.save(`Rapport_Direction_${academicYear.name.replace(/\s+/g, '_')}.pdf`);
+    setIsExporting(null);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
+    setIsExporting('excel');
+    const XLSX = await import('xlsx');
+
     const data = students.map(s => ({
       Matricule: s.matricule,
       Nom: s.lastName,
@@ -96,6 +102,7 @@ export const ReportsModule: React.FC = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Eleves_DirecteurPro");
     XLSX.writeFile(wb, `Export_Eleves_${school.code}.xlsx`);
+    setIsExporting(null);
   };
 
   return (
@@ -160,18 +167,20 @@ export const ReportsModule: React.FC = () => {
         <div className="flex items-center space-x-3 w-full sm:w-auto">
           <button
             onClick={handleExportExcel}
-            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 transition-colors"
+            disabled={isExporting !== null}
+            className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center space-x-2 border border-slate-700 transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>Exporter Excel (.xlsx)</span>
+            <span>{isExporting === 'excel' ? 'Génération en cours...' : 'Exporter Excel (.xlsx)'}</span>
           </button>
 
           <button
             onClick={handleExportPDF}
-            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-brand-600/30 transition-all"
+            disabled={isExporting !== null}
+            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-brand-600/30 transition-all disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
-            <span>Télécharger PDF (.pdf)</span>
+            <span>{isExporting === 'pdf' ? 'Génération en cours...' : 'Télécharger PDF (.pdf)'}</span>
           </button>
         </div>
       </div>

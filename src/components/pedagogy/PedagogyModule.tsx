@@ -13,8 +13,6 @@ import {
   TrendingUp,
   Sparkles
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 export const PedagogyModule: React.FC = () => {
   const { students, classes, subjects, updateStudentGrade, school } = useApp();
@@ -23,6 +21,7 @@ export const PedagogyModule: React.FC = () => {
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [editScore, setEditScore] = useState<number>(10);
   const [activeBulletinStudent, setActiveBulletinStudent] = useState<Student | null>(null);
+  const [generatingBulletinId, setGeneratingBulletinId] = useState<string | null>(null);
 
   const filteredStudents = students.filter(s => {
     const matchClass = selectedClassId === 'all' || s.classId === selectedClassId;
@@ -38,7 +37,12 @@ export const PedagogyModule: React.FC = () => {
     setEditingStudentId(null);
   };
 
-  const generatePDFBulletin = (student: Student) => {
+  const generatePDFBulletin = async (student: Student) => {
+    setGeneratingBulletinId(student.id);
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ]);
     const doc = new jsPDF();
     
     // Header School
@@ -96,6 +100,7 @@ export const PedagogyModule: React.FC = () => {
     doc.text("Le Chef d'Établissement", 140, finalY + 20);
 
     doc.save(`Bulletin_${student.lastName}_${student.firstName}.pdf`);
+    setGeneratingBulletinId(null);
   };
 
   return (
@@ -237,11 +242,12 @@ export const PedagogyModule: React.FC = () => {
                   <td className="px-4 py-3 text-right">
                     <button
                       onClick={() => generatePDFBulletin(student)}
-                      className="px-3 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600 text-brand-300 hover:text-white border border-brand-700/50 text-xs font-semibold inline-flex items-center space-x-1.5 transition-all"
+                      disabled={generatingBulletinId === student.id}
+                      className="px-3 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600 text-brand-300 hover:text-white border border-brand-700/50 text-xs font-semibold inline-flex items-center space-x-1.5 transition-all disabled:opacity-50"
                       title="Télécharger le bulletin PDF"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Bulletin PDF</span>
+                      <span>{generatingBulletinId === student.id ? 'Génération...' : 'Bulletin PDF'}</span>
                     </button>
                   </td>
                 </tr>

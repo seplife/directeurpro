@@ -10,7 +10,8 @@ import {
   GraduationCap,
   ArrowRight,
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  Save
 } from 'lucide-react';
 
 export const WhatIfSimulator: React.FC = () => {
@@ -40,6 +41,53 @@ export const WhatIfSimulator: React.FC = () => {
   const basePassRate = 78.4;
   const projectedPassRate = Math.min(96.0, Number((basePassRate + teachersCount * 4.2 + supportHours * 2.8).toFixed(1)));
   const passRateDelta = (projectedPassRate - basePassRate).toFixed(1);
+
+  const [savedConfirmation, setSavedConfirmation] = useState(false);
+
+  const handleSaveScenario = () => {
+    const scenario: WhatIfScenario = {
+      id: `scen_${Date.now()}`,
+      title: `Scénario : +${teachersCount} enseignant(s), +${supportHours}h soutien, ${studentGrowthPercent >= 0 ? '+' : ''}${studentGrowthPercent}% effectifs`,
+      category: teachersCount > 0 ? 'recrutement' : supportHours > 0 ? 'soutien_pedagogique' : tuitionAdjustmentPercent !== 0 ? 'frais_scolaires' : 'effectifs',
+      parameters: {
+        teachersCount,
+        supportHours,
+        tuitionAdjustmentPercent,
+        studentGrowthPercent
+      },
+      projectedOutcomes: [
+        {
+          metric: 'Taux de réussite',
+          currentValue: `${basePassRate}%`,
+          projectedValue: `${projectedPassRate}%`,
+          delta: `+${passRateDelta}%`,
+          trend: 'positive'
+        },
+        {
+          metric: 'Résultat net',
+          currentValue: '0 FCFA',
+          projectedValue: `${netFinancialGain.toLocaleString('fr-FR')} FCFA`,
+          delta: netFinancialGain >= 0 ? 'Positif' : 'Négatif',
+          trend: netFinancialGain >= 0 ? 'positive' : 'negative'
+        },
+        {
+          metric: 'Effectif projeté',
+          currentValue: `${currentBaseStudents}`,
+          projectedValue: `${simulatedStudents}`,
+          delta: `+${addedStudents}`,
+          trend: 'neutral'
+        }
+      ],
+      assumptions: ['Effectifs stabilisés', 'Recouvrement standard', `Année académique de 9 mois`],
+      aiAnalysis: netFinancialGain >= 0
+        ? `Scénario viable : gain net de ${netFinancialGain.toLocaleString('fr-FR')} FCFA et +${passRateDelta} points de réussite.`
+        : `Scénario en déficit de ${Math.abs(netFinancialGain).toLocaleString('fr-FR')} FCFA : à ajuster avant validation.`
+    };
+
+    addWhatIfScenario(scenario);
+    setSavedConfirmation(true);
+    setTimeout(() => setSavedConfirmation(false), 3000);
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -215,9 +263,19 @@ export const WhatIfSimulator: React.FC = () => {
                 : `Attention : ce scénario engendre un déficit opérationnel net de ${Math.abs(netFinancialGain).toLocaleString('fr-FR')} FCFA. Pour le viabiliser, envisagez un léger ajustement des frais d'écolage (+3 à +5%) ou un ciblage du soutien sur les seuls élèves en difficulté critique.`}
             </p>
 
-            <div className="pt-2 flex items-center justify-between border-t border-brand-900/60 text-xs">
-              <span className="text-slate-400">Confiance du modèle : <strong className="text-white">92%</strong></span>
-              <span className="text-slate-400">Hypothèses : <strong className="text-slate-300">Effectifs stabilisés & recouvrement standard</strong></span>
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-brand-900/60 text-xs">
+              <div className="space-y-0.5">
+                <span className="text-slate-400 block">Confiance du modèle : <strong className="text-white">92%</strong></span>
+                <span className="text-slate-400 block">Hypothèses : <strong className="text-slate-300">Effectifs stabilisés & recouvrement standard</strong></span>
+              </div>
+
+              <button
+                onClick={handleSaveScenario}
+                className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-brand-600/30 transition-all self-start sm:self-auto"
+              >
+                {savedConfirmation ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                <span>{savedConfirmation ? 'Scénario enregistré !' : 'Enregistrer ce scénario'}</span>
+              </button>
             </div>
           </div>
 

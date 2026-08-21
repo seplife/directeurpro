@@ -19,6 +19,7 @@ export const VigilanceCenter: React.FC = () => {
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [activeModalMessage, setActiveModalMessage] = useState<{ title: string; content: string } | null>(null);
+  const [confirmation, setConfirmation] = useState<string | null>(null);
 
   const filteredAlerts = alerts.filter(a => {
     const matchSev = selectedSeverity === 'all' || a.severity === selectedSeverity;
@@ -226,8 +227,9 @@ export const VigilanceCenter: React.FC = () => {
               </button>
               <button
                 onClick={() => {
-                  alert('Message validé et programmé pour envoi sécurisé !');
                   setActiveModalMessage(null);
+                  setConfirmation('Message validé et programmé pour envoi sécurisé !');
+                  setTimeout(() => setConfirmation(null), 3500);
                 }}
                 className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow-lg shadow-brand-600/30"
               >
@@ -235,6 +237,14 @@ export const VigilanceCenter: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Confirmation Toast */}
+      {confirmation && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-950 border border-emerald-700 text-emerald-300 px-4 py-3 rounded-xl shadow-2xl text-xs font-semibold flex items-center space-x-2">
+          <CheckCircle2 className="w-4 h-4" />
+          <span>{confirmation}</span>
         </div>
       )}
     </div>

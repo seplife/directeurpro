@@ -17,13 +17,27 @@ import {
   Users
 } from 'lucide-react';
 
+interface NavItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  count?: number;
+  countColor?: string;
+}
+
+interface NavGroup {
+  group: string;
+  items: NavItem[];
+}
+
 export const Sidebar: React.FC = () => {
   const { activeTab, setActiveTab, alerts, decisions, currentUser } = useApp();
 
   const activeAlertsCount = alerts.filter(a => a.status === 'active').length;
   const pendingDecisionsCount = decisions.filter(d => d.status === 'pending_director').length;
 
-  const navItems = [
+  const navItems: NavGroup[] = [
     {
       group: 'INTELLIGENCE DÉCISIONNELLE',
       items: [

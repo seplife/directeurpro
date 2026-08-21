@@ -23,7 +23,6 @@ import {
   INITIAL_SUBJECTS,
   INITIAL_USERS,
   INITIAL_STUDENTS,
-  INITIAL_SCHOOL_HEALTH,
   INITIAL_DAILY_BRIEF,
   INITIAL_ALERTS,
   INITIAL_DECISIONS,
@@ -74,7 +73,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [budget, setBudget] = useState<SchoolBudget>(INITIAL_BUDGET);
   const [alerts, setAlerts] = useState<AIAlert[]>(INITIAL_ALERTS);
   const [decisions, setDecisions] = useState<AIDecision[]>(INITIAL_DECISIONS);
-  const [schoolHealth, setSchoolHealth] = useState<SchoolHealthScore>(INITIAL_SCHOOL_HEALTH);
+  const [schoolHealth, setSchoolHealth] = useState<SchoolHealthScore>(() =>
+    SchoolHealthService.calculateHealthScore(INITIAL_STUDENTS, INITIAL_ALERTS, INITIAL_BUDGET)
+  );
   const [dailyBrief, setDailyBrief] = useState<DailyIntelligenceBrief>(INITIAL_DAILY_BRIEF);
   const [whatIfScenarios, setWhatIfScenarios] = useState<WhatIfScenario[]>(INITIAL_WHAT_IF_SCENARIOS);
   const [currentUser, setCurrentUser] = useState<User>(INITIAL_USERS[0]); // Director by default
