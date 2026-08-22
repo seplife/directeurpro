@@ -29,6 +29,7 @@ import {
   Legend
 } from 'recharts';
 import { DirectorAssistantWidget } from '../directorAssistant/DirectorAssistantWidget';
+import { EducatorAssistantWidget } from '../educatorAssistant/EducatorAssistantWidget';
 
 export const ExecutiveCockpit: React.FC = () => {
   const {
@@ -42,7 +43,9 @@ export const ExecutiveCockpit: React.FC = () => {
     classes,
     setActiveTab,
     acceptDecision,
-    canAccessDirectorAssistant
+    canAccessDirectorAssistant,
+    canAccessEducatorAssistant,
+    currentUser
   } = useApp();
 
   const criticalAlerts = alerts.filter(a => a.severity === 'critique' && a.status === 'active');
@@ -292,7 +295,16 @@ export const ExecutiveCockpit: React.FC = () => {
 
         {/* Right Column (1/3): Urgent Decisions & Live Alerts */}
         <div className="space-y-6">
-          {canAccessDirectorAssistant && <DirectorAssistantWidget />}
+          {currentUser.role === 'counselor' ? (
+            <EducatorAssistantWidget />
+          ) : (
+            <>
+              {canAccessDirectorAssistant && <DirectorAssistantWidget />}
+              {canAccessEducatorAssistant && currentUser.role !== 'director' && currentUser.role !== 'academic_director' && (
+                <EducatorAssistantWidget />
+              )}
+            </>
+          )}
 
           {/* Urgent AI Decisions Awaiting Director Validation */}
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">

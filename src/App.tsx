@@ -14,20 +14,21 @@ import { TimetableModule } from './components/timetable/TimetableModule';
 import { ReportsModule } from './components/reports/ReportsModule';
 import { SettingsModule } from './components/settings/SettingsModule';
 import { AssistantModule } from './components/directorAssistant/AssistantModule';
+import { EducatorAssistantModule } from './components/educatorAssistant/EducatorAssistantModule';
 import { ShieldAlert } from 'lucide-react';
 
-const RestrictedAccess: React.FC = () => (
+const RestrictedAccess: React.FC<{ message?: string }> = ({ message }) => (
   <div className="glass-panel p-10 rounded-2xl border border-slate-800 text-center space-y-3 max-w-lg mx-auto mt-10">
     <ShieldAlert className="w-8 h-8 text-rose-400 mx-auto" />
     <h3 className="text-sm font-bold text-white">Accès restreint</h3>
     <p className="text-xs text-slate-400">
-      L’Assistant du Directeur des Études est réservé au Directeur des Études, au Directeur et aux administrateurs de la plateforme.
+      {message || 'Ce module est réservé aux rôles autorisés de la plateforme.'}
     </p>
   </div>
 );
 
 const MainLayout: React.FC = () => {
-  const { activeTab, canAccessDirectorAssistant } = useApp();
+  const { activeTab, canAccessDirectorAssistant, canAccessEducatorAssistant } = useApp();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -49,7 +50,20 @@ const MainLayout: React.FC = () => {
             {activeTab === 'timetable' && <TimetableModule />}
             {activeTab === 'reports' && <ReportsModule />}
             {activeTab === 'settings' && <SettingsModule />}
-            {activeTab === 'assistant' && (canAccessDirectorAssistant ? <AssistantModule /> : <RestrictedAccess />)}
+            {activeTab === 'assistant' && (
+              canAccessDirectorAssistant ? (
+                <AssistantModule />
+              ) : (
+                <RestrictedAccess message="L’Assistant du Directeur des Études est réservé au Directeur des Études, au Directeur et aux administrateurs." />
+              )
+            )}
+            {activeTab === 'educator_assistant' && (
+              canAccessEducatorAssistant ? (
+                <EducatorAssistantModule />
+              ) : (
+                <RestrictedAccess message="L’Assistant Éducateur+ est réservé aux éducateurs, surveillants généraux et à la direction." />
+              )
+            )}
           </div>
         </main>
       </div>

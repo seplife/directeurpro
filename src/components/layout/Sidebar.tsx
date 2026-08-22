@@ -1,6 +1,7 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
 import { useDirectorAssistant } from '../../hooks/useDirectorAssistant';
+import { useEducatorAssistant } from '../../hooks/useEducatorAssistant';
 import {
   LayoutDashboard,
   AlertTriangle,
@@ -34,8 +35,9 @@ interface NavGroup {
 }
 
 export const Sidebar: React.FC = () => {
-  const { activeTab, setActiveTab, alerts, decisions, currentUser, canAccessDirectorAssistant } = useApp();
+  const { activeTab, setActiveTab, alerts, decisions, currentUser, canAccessDirectorAssistant, canAccessEducatorAssistant } = useApp();
   const { overdueTasks } = useDirectorAssistant();
+  const { overdueTasks: educatorOverdueTasks } = useEducatorAssistant();
 
   const activeAlertsCount = alerts.filter(a => a.status === 'active').length;
   const pendingDecisionsCount = decisions.filter(d => d.status === 'pending_director').length;
@@ -51,6 +53,9 @@ export const Sidebar: React.FC = () => {
         { id: 'simulator', label: 'Simulateur What-If', icon: Sliders, badge: 'Prévision' },
         ...(canAccessDirectorAssistant
           ? [{ id: 'assistant', label: 'Assistant DE', icon: Bot, count: overdueTasks.length, countColor: 'bg-rose-500 text-white', badge: overdueTasks.length === 0 ? 'Live' : undefined }]
+          : []),
+        ...(canAccessEducatorAssistant
+          ? [{ id: 'educator_assistant', label: 'Éducateur+', icon: ShieldCheck, count: educatorOverdueTasks.length, countColor: 'bg-rose-500 text-white', badge: educatorOverdueTasks.length === 0 ? 'Live' : undefined }]
           : [])
       ]
     },

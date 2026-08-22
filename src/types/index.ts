@@ -447,3 +447,192 @@ export interface DirectorDailySummary {
   incidentsCount: number;
   tomorrowPriorities: string[];
 }
+
+// ==========================================
+// EDUCATOR ASSISTANT (ÉDUCATEUR+ — VIE SCOLAIRE)
+// ==========================================
+
+export type EducatorTaskStatus =
+  | 'pending'    // à venir, hors créneau
+  | 'active'     // dans son créneau horaire actuel
+  | 'completed'  // marquée terminée par l'utilisateur
+  | 'postponed'  // reportée à une nouvelle heure
+  | 'skipped'    // ignorée volontairement
+  | 'overdue';   // créneau dépassé sans action
+
+export type EducatorTaskPriority = 'faible' | 'moyenne' | 'haute' | 'critique';
+
+export type EducatorTaskCategory =
+  | 'organisation'
+  | 'accueil'
+  | 'surveillance'
+  | 'assiduite'
+  | 'discipline'
+  | 'eleves'
+  | 'parents'
+  | 'administration'
+  | 'reporting';
+
+export interface EducatorTaskChecklistItem {
+  id: string;
+  label: string;
+  checked?: boolean;
+}
+
+export interface EducatorDailyTask {
+  id: string;
+  schoolId: string;
+  educatorId: string;       // Éducateur assigné (ou 'all' pour tâches communes)
+  taskDate: string;         // "YYYY-MM-DD"
+  title: string;
+  description: string;
+  instructions: string[];   // Instructions d'action détaillées
+  checklist: EducatorTaskChecklistItem[];
+  startTime: string;        // "06:30"
+  endTime: string;          // "06:45"
+  originalStartTime: string;
+  priority: EducatorTaskPriority;
+  status: EducatorTaskStatus;
+  category: EducatorTaskCategory;
+  isCustom?: boolean;
+  completedAt?: string;
+  postponedUntil?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EducatorAssistantSettings {
+  assistantName: string;
+  dayStartTime: string; // "06:30"
+  dayEndTime: string;   // "17:15"
+  remindBeforeTaskMinutes: number; // ex: 5
+  intermediateReminderDelayMinutes: number; // ex: 10
+  overdueAlertDelayMinutes: number; // ex: 15
+  notificationsEnabled: boolean;
+  browserNotificationsEnabled: boolean;
+  activeDaysOfWeek: number[]; // 1=Lundi ... 6=Samedi
+  assignedClassIds?: string[]; // Classes dont l'éducateur a la charge
+}
+
+export interface EducatorAssistantLogEntry {
+  id: string;
+  schoolId: string;
+  educatorId: string;
+  taskId?: string;
+  action:
+    | 'task_created'
+    | 'task_started'
+    | 'task_completed'
+    | 'task_postponed'
+    | 'task_skipped'
+    | 'note_added'
+    | 'alert_resolved'
+    | 'sanction_recorded'
+    | 'parent_contacted'
+    | 'incident_handled'
+    | 'daily_summary_generated';
+  detail: string;
+  timestamp: string;
+  metadata?: Record<string, any>;
+}
+
+export interface EducatorContextAlert {
+  id: string;
+  type: 'class_absence' | 'repeated_absence' | 'repeated_lateness' | 'incident' | 'sanction_pending' | 'parent_contact';
+  severity: 'critique' | 'haute' | 'moyenne';
+  title: string;
+  description: string;
+  targetEntityName: string;
+  targetClass?: string;
+  targetStudentId?: string;
+  count?: number;
+  recommendation: string;
+  actionLabel?: string;
+  status: 'active' | 'in_progress' | 'resolved';
+  detectedAt: string;
+}
+
+export interface EducatorSanction {
+  id: string;
+  schoolId: string;
+  studentId: string;
+  studentName: string;
+  className: string;
+  type: 'avertissement' | 'retenue' | 'exclusion_temporaire' | 'convocation' | 'engagement' | 'mesure_educative';
+  reason: string;
+  date: string;
+  durationOrSchedule?: string; // ex: "2 heures le Samedi 08h-10h", "3 jours"
+  status: 'en_attente' | 'validee' | 'executee' | 'annulee';
+  decidedBy: string;
+  notes?: string;
+}
+
+export interface EducatorStudentAtRisk {
+  student: Student;
+  urgencyLevel: 'critique' | 'haute' | 'moderee'; // 🔴, 🟠, 🟡
+  primaryReason: string;
+  recentAbsencesCount: number;
+  recentLatenessCount: number;
+  sanctionsCount: number;
+  recommendation: string;
+  parentContactNeeded: boolean;
+}
+
+export interface ParentContactRecord {
+  id: string;
+  schoolId: string;
+  studentId: string;
+  studentName: string;
+  guardianName: string;
+  guardianPhone: string;
+  reason: string;
+  channel: 'appel' | 'sms' | 'whatsapp' | 'entretien';
+  status: 'en_attente' | 'effectue' | 'non_abouti';
+  contactedAt?: string;
+  notes?: string;
+  educatorId: string;
+}
+
+export interface EducatorDailySummary {
+  date: string;
+  educatorId: string;
+  // Activité
+  tasksPlanned: number;
+  tasksCompleted: number;
+  tasksPostponed: number;
+  tasksNotDone: number;
+  executionRate: number; // %
+  // Assiduité
+  studentsAbsent: number;
+  unjustifiedAbsences: number;
+  latenesses: number;
+  repeatedLatenesses: number;
+  // Discipline
+  incidentsCount: number;
+  incidentsHandled: number;
+  incidentsToFollow: number;
+  // Suivi
+  studentsReceived: number;
+  parentsContacted: number;
+  pendingSanctions: number;
+  // Priorités IA
+  tomorrowPriorities: string[];
+}
+
+export interface EducatorWeeklyReport {
+  weekRange: string;
+  educatorId: string;
+  executionRate: number;
+  totalTasksCompleted: number;
+  totalAbsences: number;
+  totalLatenesses: number;
+  frequentlyAbsentStudents: { studentName: string; className: string; count: number }[];
+  frequentlyLateStudents: { studentName: string; className: string; count: number }[];
+  incidentsCount: number;
+  sanctionsCount: number;
+  parentsContactedCount: number;
+  unresolvedFilesCount: number;
+  trendAnalysis: string;
+  aiRecommendations: string[];
+}

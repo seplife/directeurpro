@@ -19,7 +19,10 @@ import {
   WhatIfScenario,
   User,
   DirectorAssistantSettings,
-  TeacherAbsence
+  TeacherAbsence,
+  EducatorAssistantSettings,
+  EducatorSanction,
+  ParentContactRecord
 } from '../../types';
 
 export const INITIAL_SCHOOL: School = {
@@ -103,12 +106,21 @@ export const INITIAL_USERS: User[] = [
   },
   {
     id: 'u_educ',
-    email: 'educateur@directeurpro.ci',
+    email: 'educateur.college@directeurpro.ci',
     firstName: 'Ibrahim',
     lastName: 'Soro',
     role: 'counselor',
     schoolId: 'school_abidjan_01',
     phone: '+225 01 23 45 67 89'
+  },
+  {
+    id: 'u_educ2',
+    email: 'educatrice.lycee@directeurpro.ci',
+    firstName: 'Marie-Ange',
+    lastName: 'Kouamé',
+    role: 'counselor',
+    schoolId: 'school_abidjan_01',
+    phone: '+225 07 45 67 89 01'
   },
   {
     id: 'u_prof',
@@ -674,3 +686,147 @@ export const INITIAL_WHAT_IF_SCENARIOS: WhatIfScenario[] = [
     aiAnalysis: 'Action à impact immédiat, particulièrement recommandée pour les classes d’examen.'
   }
 ];
+
+export const INITIAL_EDUCATOR_SETTINGS: EducatorAssistantSettings = {
+  assistantName: 'Éducateur+ — Assistant de Vie Scolaire',
+  dayStartTime: '06:30',
+  dayEndTime: '17:15',
+  remindBeforeTaskMinutes: 5,
+  intermediateReminderDelayMinutes: 10,
+  overdueAlertDelayMinutes: 15,
+  notificationsEnabled: true,
+  browserNotificationsEnabled: false,
+  activeDaysOfWeek: [1, 2, 3, 4, 5, 6],
+  assignedClassIds: ['c_6a', 'c_6b', 'c_3a', 'c_3b']
+};
+
+export const INITIAL_DISCIPLINARY_EVENTS: DisciplinaryEvent[] = [
+  {
+    id: 'devt_01',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_05',
+    studentName: 'Cedric Bamba',
+    className: '3ème 2 (BEPC)',
+    date: todayLocalDateKey(),
+    type: 'bagarre',
+    severity: 'grave',
+    description: 'Altercation physique lors de la montée des rangs avec un camarade.',
+    sanction: 'Heure de colle + Convocation parentale',
+    reportedBy: 'M. Soro (Éducateur)',
+    status: 'en_cours'
+  },
+  {
+    id: 'devt_02',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_01',
+    studentName: 'Emmanuel Aka',
+    className: 'Terminale D (BAC)',
+    date: todayLocalDateKey(),
+    type: 'retard_repete',
+    severity: 'moyenne',
+    description: '3ème retard consécutif de plus de 20 min en 1ère heure sans justificatif.',
+    sanction: 'Avertissement écrit de vie scolaire',
+    reportedBy: 'Mme Kouamé (Éducatrice)',
+    status: 'ouvert'
+  },
+  {
+    id: 'devt_03',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_02',
+    studentName: 'Fatoumata Koné',
+    className: '3ème 1 (BEPC)',
+    date: '2026-08-20',
+    type: 'bavardage',
+    severity: 'mineure',
+    description: 'Perturbation répétée du cours de SVT.',
+    sanction: 'Devoir supplémentaire surveillé',
+    reportedBy: 'Professeur de SVT',
+    status: 'traite'
+  }
+];
+
+export const INITIAL_EDUCATOR_SANCTIONS: EducatorSanction[] = [
+  {
+    id: 'sanc_01',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_05',
+    studentName: 'Cedric Bamba',
+    className: '3ème 2 (BEPC)',
+    type: 'retenue',
+    reason: 'Comportement violent et perturbation de la récréation',
+    date: todayLocalDateKey(),
+    durationOrSchedule: 'Samedi matin 08h00 - 10h00',
+    status: 'en_attente',
+    decidedBy: 'Ibrahim Soro (Éducateur)',
+    notes: 'Travail d’intérêt éducatif en bibliothèque'
+  },
+  {
+    id: 'sanc_02',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_01',
+    studentName: 'Emmanuel Aka',
+    className: 'Terminale D (BAC)',
+    type: 'convocation',
+    reason: 'Cumul de 16 absences non justifiées et retards matinaux',
+    date: todayLocalDateKey(),
+    durationOrSchedule: 'Lundi prochain 09h00',
+    status: 'en_attente',
+    decidedBy: 'Marie-Ange Kouamé (Éducatrice)',
+    notes: 'Entretien avec Mme Mireille Aka (Mère)'
+  },
+  {
+    id: 'sanc_03',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_02',
+    studentName: 'Fatoumata Koné',
+    className: '3ème 1 (BEPC)',
+    type: 'avertissement',
+    reason: 'Absences non autorisées répétées le lundi',
+    date: '2026-08-18',
+    durationOrSchedule: 'Inscription au dossier scolaire',
+    status: 'validee',
+    decidedBy: 'Ibrahim Soro (Éducateur)'
+  }
+];
+
+export const INITIAL_PARENT_CONTACTS: ParentContactRecord[] = [
+  {
+    id: 'pcon_01',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_01',
+    studentName: 'Emmanuel Aka',
+    guardianName: 'Mme Mireille Aka',
+    guardianPhone: '+225 07 11 22 33 44',
+    reason: 'Alerte absences répétées et chute de résultats',
+    channel: 'appel',
+    status: 'en_attente',
+    educatorId: 'u_educ'
+  },
+  {
+    id: 'pcon_02',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_05',
+    studentName: 'Cedric Bamba',
+    guardianName: 'Mme Bamba Salimata',
+    guardianPhone: '+225 05 12 34 98 76',
+    reason: 'Convocation suite à incident disciplinaire',
+    channel: 'appel',
+    status: 'en_attente',
+    educatorId: 'u_educ'
+  },
+  {
+    id: 'pcon_03',
+    schoolId: 'school_abidjan_01',
+    studentId: 'std_02',
+    studentName: 'Fatoumata Koné',
+    guardianName: 'M. Moussa Koné',
+    guardianPhone: '+225 05 88 99 10 20',
+    reason: 'Point de situation sur l’assiduité au BEPC',
+    channel: 'sms',
+    status: 'effectue',
+    contactedAt: '2026-08-21T15:45:00Z',
+    notes: 'Le parent a confirmé avoir pris connaissance du bilan.',
+    educatorId: 'u_educ'
+  }
+];
+

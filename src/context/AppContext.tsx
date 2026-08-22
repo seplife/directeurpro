@@ -19,7 +19,15 @@ import {
   DirectorAssistantSettings,
   TeacherAbsence,
   DirectorAssistantLogEntry,
-  DirectorDailySummary
+  DirectorDailySummary,
+  EducatorDailyTask,
+  EducatorAssistantSettings,
+  EducatorAssistantLogEntry,
+  EducatorSanction,
+  EducatorDailySummary,
+  EducatorWeeklyReport,
+  ParentContactRecord,
+  DisciplinaryEvent
 } from '../types';
 import {
   INITIAL_SCHOOL,
@@ -35,12 +43,19 @@ import {
   INITIAL_PAYMENTS,
   INITIAL_WHAT_IF_SCENARIOS,
   INITIAL_ASSISTANT_SETTINGS,
-  INITIAL_TEACHER_ABSENCES
+  INITIAL_TEACHER_ABSENCES,
+  INITIAL_EDUCATOR_SETTINGS,
+  INITIAL_EDUCATOR_SANCTIONS,
+  INITIAL_DISCIPLINARY_EVENTS,
+  INITIAL_PARENT_CONTACTS
 } from '../services/db/mockData';
 import { SchoolHealthService } from '../services/ai/schoolHealthService';
 import { StudentRiskAgent } from '../services/ai/agents/studentRiskAgent';
 import { ChronogramService } from '../services/directorAssistant/chronogramService';
 import { SummaryService } from '../services/directorAssistant/summaryService';
+import { EducatorChronogramService } from '../services/educatorAssistant/educatorChronogramService';
+import { EducatorDailySummaryService } from '../services/educatorAssistant/educatorDailySummaryService';
+import { EducatorWeeklyReportService } from '../services/educatorAssistant/educatorWeeklyReportService';
 
 interface AppContextType {
   school: School;
@@ -83,9 +98,37 @@ interface AppContextType {
   addCustomTask: (task: Pick<DirectorTask, 'title' | 'description' | 'startTime' | 'endTime' | 'priority' | 'category'>) => void;
   updateAssistantSettings: (settings: Partial<DirectorAssistantSettings>) => void;
   getDailySummary: (date?: Date) => DirectorDailySummary;
+
+  // --- Educator Assistant (Éducateur+ — Vie Scolaire) ---
+  educatorTasks: EducatorDailyTask[];
+  educatorSettings: EducatorAssistantSettings;
+  educatorLogs: EducatorAssistantLogEntry[];
+  educatorSanctions: EducatorSanction[];
+  disciplinaryEvents: DisciplinaryEvent[];
+  parentContacts: ParentContactRecord[];
+  activeEducatorId: string;
+  setActiveEducatorId: (id: string) => void;
+  canAccessEducatorAssistant: boolean;
+  isEducatorSupervisor: boolean;
+  startEducatorTask: (taskId: string) => void;
+  completeEducatorTask: (taskId: string, note?: string) => void;
+  postponeEducatorTask: (taskId: string, newStartTime: string, newEndTime: string) => void;
+  skipEducatorTask: (taskId: string) => void;
+  addEducatorTaskNote: (taskId: string, note: string) => void;
+  toggleEducatorTaskChecklistItem: (taskId: string, itemId: string) => void;
+  addCustomEducatorTask: (task: Pick<EducatorDailyTask, 'title' | 'description' | 'startTime' | 'endTime' | 'priority' | 'category'>) => void;
+  updateEducatorSettings: (settings: Partial<EducatorAssistantSettings>) => void;
+  updateEducatorSanctionStatus: (sanctionId: string, status: EducatorSanction['status'], notes?: string) => void;
+  addEducatorSanction: (sanction: Omit<EducatorSanction, 'id'>) => void;
+  recordParentContact: (contact: Omit<ParentContactRecord, 'id'>) => void;
+  handleDisciplinaryEvent: (eventId: string, status: DisciplinaryEvent['status'], sanctionNotes?: string) => void;
+  getEducatorDailySummary: (educatorId?: string, date?: Date) => EducatorDailySummary;
+  getEducatorWeeklyReport: (educatorId?: string) => EducatorWeeklyReport;
 }
 
 const ASSISTANT_ALLOWED_ROLES: UserRole[] = ['academic_director', 'director', 'super_admin'];
+const EDUCATOR_ALLOWED_ROLES: UserRole[] = ['counselor', 'academic_director', 'director', 'super_admin'];
+const EDUCATOR_SUPERVISOR_ROLES: UserRole[] = ['academic_director', 'director', 'super_admin'];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -376,8 +419,232 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getDailySummary = (date: Date = new Date()) => {
-    const summary = SummaryService.generateDailySummary(directorTasks, teacherAbsences, students, date);
-    return summary;
+    return SummaryService.generateDailySummary(directorTasks, teacherAbsences, students, date);
+  };
+
+  // --- Educator Assistant (Éducateur+ — Vie Scolaire) state ---
+  const [educatorSettings, setEducatorSettings] = useState<EducatorAssistantSettings>(INITIAL_EDUCATOR_SETTINGS);
+  const [educatorLogs, setEducatorLogs] = useState<EducatorAssistantLogEntry[]>([]);
+  const [educatorSanctions, setEducatorSanctions] = useState<EducatorSanction[]>(INITIAL_EDUCATOR_SANCTIONS);
+  const [disciplinaryEvents, setDisciplinaryEvents] = useState<DisciplinaryEvent[]>(INITIAL_DISCIPLINARY_EVENTS);
+  const [parentContacts, setParentContacts] = useState<ParentContactRecord[]>(INITIAL_PARENT_CONTACTS);
+  const [activeEducatorId, setActiveEducatorId] = useState<string>('u_educ');
+
+  const [educatorTasks, setEducatorTasks] = useState<EducatorDailyTask[]>(() => {
+    const today = new Date();
+    const tasks1 = EducatorChronogramService.generateTasksForDate(today, 'u_educ', INITIAL_SCHOOL.id, INITIAL_EDUCATOR_SETTINGS);
+    const tasks2 = EducatorChronogramService.generateTasksForDate(today, 'u_educ2', INITIAL_SCHOOL.id, {
+      ...INITIAL_EDUCATOR_SETTINGS,
+      assignedClassIds: ['c_2a', 'c_2c', 'c_1d', 'c_td', 'c_tc', 'c_ta2']
+    });
+    return [...tasks1, ...tasks2];
+  });
+
+  const canAccessEducatorAssistant = EDUCATOR_ALLOWED_ROLES.includes(currentUser.role);
+  const isEducatorSupervisor = EDUCATOR_SUPERVISOR_ROLES.includes(currentUser.role);
+
+  const logEducatorAction = (
+    action: EducatorAssistantLogEntry['action'],
+    detail: string,
+    taskId?: string,
+    metadata?: Record<string, any>
+  ) => {
+    const entry: EducatorAssistantLogEntry = {
+      id: `elog_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      schoolId: school.id,
+      educatorId: currentUser.id,
+      taskId,
+      action,
+      detail,
+      timestamp: new Date().toISOString(),
+      metadata
+    };
+    setEducatorLogs(prev => [entry, ...prev]);
+  };
+
+  const startEducatorTask = (taskId: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, status: 'active', updatedAt: new Date().toISOString() } : t))
+    );
+    const task = educatorTasks.find(t => t.id === taskId);
+    logEducatorAction('task_started', `Tâche démarrée : ${task?.title || taskId}`, taskId);
+  };
+
+  const completeEducatorTask = (taskId: string, note?: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+              notes: note ? `${t.notes ? t.notes + ' | ' : ''}${note}` : t.notes,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+    const task = educatorTasks.find(t => t.id === taskId);
+    logEducatorAction('task_completed', `Tâche terminée : ${task?.title || taskId}`, taskId, { note });
+  };
+
+  const postponeEducatorTask = (taskId: string, newStartTime: string, newEndTime: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: 'postponed',
+              startTime: newStartTime,
+              endTime: newEndTime,
+              postponedUntil: newStartTime,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+    const task = educatorTasks.find(t => t.id === taskId);
+    logEducatorAction('task_postponed', `Tâche « ${task?.title || taskId} » reportée à ${newStartTime}.`, taskId, {
+      newStartTime,
+      newEndTime
+    });
+  };
+
+  const skipEducatorTask = (taskId: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, status: 'skipped', updatedAt: new Date().toISOString() } : t))
+    );
+    const task = educatorTasks.find(t => t.id === taskId);
+    logEducatorAction('task_skipped', `Tâche ignorée : ${task?.title || taskId}`, taskId);
+  };
+
+  const addEducatorTaskNote = (taskId: string, note: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? { ...t, notes: t.notes ? `${t.notes} | ${note}` : note, updatedAt: new Date().toISOString() }
+          : t
+      )
+    );
+    logEducatorAction('note_added', `Note ajoutée : ${note}`, taskId);
+  };
+
+  const toggleEducatorTaskChecklistItem = (taskId: string, itemId: string) => {
+    setEducatorTasks(prev =>
+      prev.map(t => {
+        if (t.id !== taskId) return t;
+        return {
+          ...t,
+          checklist: t.checklist.map(item =>
+            item.id === itemId ? { ...item, checked: !item.checked } : item
+          ),
+          updatedAt: new Date().toISOString()
+        };
+      })
+    );
+  };
+
+  const addCustomEducatorTask = (
+    task: Pick<EducatorDailyTask, 'title' | 'description' | 'startTime' | 'endTime' | 'priority' | 'category'>
+  ) => {
+    const dateKey = EducatorChronogramService.toDateKey(new Date());
+    const now = new Date().toISOString();
+    const effectiveEducatorId = currentUser.role === 'counselor' ? currentUser.id : activeEducatorId || 'u_educ';
+
+    const newTask: EducatorDailyTask = {
+      id: `etask_custom_${Date.now()}`,
+      schoolId: school.id,
+      educatorId: effectiveEducatorId,
+      taskDate: dateKey,
+      title: task.title,
+      description: task.description,
+      instructions: [task.description],
+      checklist: [],
+      startTime: task.startTime,
+      endTime: task.endTime,
+      originalStartTime: task.startTime,
+      priority: task.priority,
+      status: 'pending',
+      category: task.category,
+      isCustom: true,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    setEducatorTasks(prev => [...prev, newTask].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    logEducatorAction('task_created', `Tâche personnalisée créée : ${task.title}`);
+  };
+
+  const updateEducatorSettings = (settings: Partial<EducatorAssistantSettings>) => {
+    setEducatorSettings(prev => ({ ...prev, ...settings }));
+  };
+
+  const updateEducatorSanctionStatus = (sanctionId: string, status: EducatorSanction['status'], notes?: string) => {
+    setEducatorSanctions(prev =>
+      prev.map(s => (s.id === sanctionId ? { ...s, status, notes: notes || s.notes } : s))
+    );
+    logEducatorAction('sanction_recorded', `Sanction ${sanctionId} mise à jour : statut -> ${status}`);
+  };
+
+  const addEducatorSanction = (sanctionData: Omit<EducatorSanction, 'id'>) => {
+    const newSanction: EducatorSanction = {
+      ...sanctionData,
+      id: `sanc_${Date.now()}`
+    };
+    setEducatorSanctions(prev => [newSanction, ...prev]);
+    logEducatorAction('sanction_recorded', `Nouvelle sanction enregistrée pour ${sanctionData.studentName} : ${sanctionData.type}`);
+  };
+
+  const recordParentContact = (contactData: Omit<ParentContactRecord, 'id'>) => {
+    const newRecord: ParentContactRecord = {
+      ...contactData,
+      id: `pcon_${Date.now()}`,
+      contactedAt: new Date().toISOString()
+    };
+    setParentContacts(prev => [newRecord, ...prev]);
+    logEducatorAction('parent_contacted', `Communication enregistrée avec le responsable de ${contactData.studentName} (${contactData.channel})`);
+  };
+
+  const handleDisciplinaryEvent = (eventId: string, status: DisciplinaryEvent['status'], sanctionNotes?: string) => {
+    setDisciplinaryEvents(prev =>
+      prev.map(evt =>
+        evt.id === eventId
+          ? {
+              ...evt,
+              status,
+              sanction: sanctionNotes ? sanctionNotes : evt.sanction
+            }
+          : evt
+      )
+    );
+    logEducatorAction('incident_handled', `Incident disciplinaire ${eventId} traité (statut: ${status})`);
+  };
+
+  const getEducatorDailySummary = (educatorId?: string, date: Date = new Date()) => {
+    const targetId = educatorId || (currentUser.role === 'counselor' ? currentUser.id : activeEducatorId || 'u_educ');
+    return EducatorDailySummaryService.generateDailySummary(
+      educatorTasks,
+      students,
+      disciplinaryEvents,
+      educatorSanctions,
+      parentContacts,
+      targetId,
+      date
+    );
+  };
+
+  const getEducatorWeeklyReport = (educatorId?: string) => {
+    const targetId = educatorId || (currentUser.role === 'counselor' ? currentUser.id : activeEducatorId || 'u_educ');
+    const summary = getEducatorDailySummary(targetId);
+    return EducatorWeeklyReportService.generateWeeklyReport(
+      [summary],
+      educatorTasks,
+      students,
+      disciplinaryEvents,
+      educatorSanctions,
+      parentContacts,
+      targetId
+    );
   };
 
   return (
@@ -420,7 +687,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTaskNote,
         addCustomTask,
         updateAssistantSettings,
-        getDailySummary
+        getDailySummary,
+        educatorTasks,
+        educatorSettings,
+        educatorLogs,
+        educatorSanctions,
+        disciplinaryEvents,
+        parentContacts,
+        activeEducatorId,
+        setActiveEducatorId,
+        canAccessEducatorAssistant,
+        isEducatorSupervisor,
+        startEducatorTask,
+        completeEducatorTask,
+        postponeEducatorTask,
+        skipEducatorTask,
+        addEducatorTaskNote,
+        toggleEducatorTaskChecklistItem,
+        addCustomEducatorTask,
+        updateEducatorSettings,
+        updateEducatorSanctionStatus,
+        addEducatorSanction,
+        recordParentContact,
+        handleDisciplinaryEvent,
+        getEducatorDailySummary,
+        getEducatorWeeklyReport
       }}
     >
       {children}
@@ -435,3 +726,4 @@ export const useApp = () => {
   }
   return context;
 };
+

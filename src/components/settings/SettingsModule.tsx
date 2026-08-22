@@ -14,8 +14,18 @@ import {
 } from 'lucide-react';
 
 export const SettingsModule: React.FC = () => {
-  const { school, subjects, auditLogs, canAccessDirectorAssistant, assistantSettings, updateAssistantSettings } = useApp();
-  const [activeSubTab, setActiveSubTab] = useState<'etablissement' | 'coefficients' | 'saas' | 'audit' | 'assistant'>('etablissement');
+  const {
+    school,
+    subjects,
+    auditLogs,
+    canAccessDirectorAssistant,
+    assistantSettings,
+    updateAssistantSettings,
+    canAccessEducatorAssistant,
+    educatorSettings,
+    updateEducatorSettings
+  } = useApp();
+  const [activeSubTab, setActiveSubTab] = useState<'etablissement' | 'coefficients' | 'saas' | 'audit' | 'assistant' | 'educator_assistant'>('etablissement');
 
   const saasPlans = [
     {
@@ -73,7 +83,7 @@ export const SettingsModule: React.FC = () => {
       </div>
 
       {/* Sub Tabs */}
-      <div className="flex items-center space-x-2 border-b border-slate-800 pb-2 text-xs font-bold">
+      <div className="flex items-center space-x-2 border-b border-slate-800 pb-2 text-xs font-bold overflow-x-auto">
         <button
           onClick={() => setActiveSubTab('etablissement')}
           className={`px-4 py-2 rounded-xl transition-all ${
@@ -118,7 +128,19 @@ export const SettingsModule: React.FC = () => {
             }`}
           >
             <Bot className="w-3.5 h-3.5" />
-            <span>Assistant du Directeur des Études</span>
+            <span>Assistant DE</span>
+          </button>
+        )}
+
+        {canAccessEducatorAssistant && (
+          <button
+            onClick={() => setActiveSubTab('educator_assistant')}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center space-x-1.5 ${
+              activeSubTab === 'educator_assistant' ? 'bg-amber-500 text-slate-950 font-black' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Assistant Éducateur+</span>
           </button>
         )}
       </div>
@@ -410,6 +432,139 @@ export const SettingsModule: React.FC = () => {
                 <span
                   className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
                     assistantSettings.notificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assistant Éducateur+ Settings */}
+      {activeSubTab === 'educator_assistant' && canAccessEducatorAssistant && (
+        <div className="glass-panel p-6 rounded-2xl border border-amber-800/40 bg-gradient-to-br from-slate-900 via-slate-900 to-amber-950/20 space-y-6 max-w-2xl">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+            <h3 className="text-sm font-black text-white uppercase">Paramètres : {educatorSettings.assistantName}</h3>
+          </div>
+
+          <div className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Nom personnalisé de l'assistant :</label>
+              <input
+                type="text"
+                value={educatorSettings.assistantName}
+                onChange={(e) => updateEducatorSettings({ assistantName: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Prise de service (Début) :</label>
+                <input
+                  type="time"
+                  value={educatorSettings.dayStartTime}
+                  onChange={(e) => updateEducatorSettings({ dayStartTime: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Fin de journée :</label>
+                <input
+                  type="time"
+                  value={educatorSettings.dayEndTime}
+                  onChange={(e) => updateEducatorSettings({ dayEndTime: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Rappel avant tâche (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={educatorSettings.remindBeforeTaskMinutes}
+                  onChange={(e) => updateEducatorSettings({ remindBeforeTaskMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Rappel fin de créneau (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={educatorSettings.intermediateReminderDelayMinutes}
+                  onChange={(e) => updateEducatorSettings({ intermediateReminderDelayMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Alerte retard après (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={educatorSettings.overdueAlertDelayMinutes}
+                  onChange={(e) => updateEducatorSettings({ overdueAlertDelayMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-semibold mb-2">Jours actifs de la vie scolaire :</label>
+              <div className="flex items-center space-x-2">
+                {[
+                  { day: 1, label: 'Lun' },
+                  { day: 2, label: 'Mar' },
+                  { day: 3, label: 'Mer' },
+                  { day: 4, label: 'Jeu' },
+                  { day: 5, label: 'Ven' },
+                  { day: 6, label: 'Sam' },
+                  { day: 7, label: 'Dim' }
+                ].map(({ day, label }) => {
+                  const isActive = educatorSettings.activeDaysOfWeek.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        const next = isActive
+                          ? educatorSettings.activeDaysOfWeek.filter(d => d !== day)
+                          : [...educatorSettings.activeDaysOfWeek, day].sort();
+                        updateEducatorSettings({ activeDaysOfWeek: next });
+                      }}
+                      className={`w-10 h-10 rounded-lg text-[11px] font-bold transition-all ${
+                        isActive ? 'bg-amber-500 text-slate-950 font-black' : 'bg-slate-900 text-slate-500 border border-slate-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <div>
+                <span className="text-slate-200 font-semibold block">Notifications intelligentes & Anti-spam</span>
+                <span className="text-[11px] text-slate-500">Rappels de début, fin de créneau et alertes sans répétition excessive.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateEducatorSettings({ notificationsEnabled: !educatorSettings.notificationsEnabled })}
+                className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                  educatorSettings.notificationsEnabled ? 'bg-amber-500' : 'bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    educatorSettings.notificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'
                   }`}
                 />
               </button>
