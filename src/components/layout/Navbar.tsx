@@ -8,11 +8,12 @@ import {
   Building2,
   Calendar,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  LogOut
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { school, academicYear, currentUser, switchUserRole, schoolHealth, alerts, setActiveTab } = useApp();
+  const { school, academicYear, currentUser, switchUserRole, schoolHealth, alerts, setActiveTab, logout } = useApp();
 
   const criticalCount = alerts.filter(a => a.severity === 'critique' && a.status === 'active').length;
 
@@ -120,6 +121,15 @@ export const Navbar: React.FC = () => {
             </select>
             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
           </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="p-2 rounded-lg bg-slate-800 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-700 text-slate-400 hover:text-rose-300 transition-all"
+            title="Se déconnecter / Changer d'établissement"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </header>

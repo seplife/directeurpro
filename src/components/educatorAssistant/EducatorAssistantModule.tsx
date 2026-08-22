@@ -1046,7 +1046,7 @@ export const EducatorAssistantModule: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                {dailySummary.tomorrowPriorities.map((prio, pIdx) => (
+                {dailySummary.tomorrowPriorities.map((prio: string, pIdx: number) => (
                   <div key={pIdx} className="flex items-start space-x-2 text-xs text-slate-200">
                     <span className="h-5 w-5 rounded-full bg-amber-500/20 text-amber-300 font-black text-[10px] flex items-center justify-center shrink-0 border border-amber-500/40">
                       {pIdx + 1}
@@ -1085,7 +1085,7 @@ export const EducatorAssistantModule: React.FC = () => {
                 Recommandations d'Action pour la Semaine Suivante :
               </span>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {weeklyReport.aiRecommendations.map((rec, rIdx) => (
+                {weeklyReport.aiRecommendations.map((rec: string, rIdx: number) => (
                   <div key={rIdx} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-start space-x-2">
                     <span className="text-emerald-400 font-black">✓</span>
                     <span>{rec}</span>

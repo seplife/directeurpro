@@ -636,3 +636,50 @@ export interface EducatorWeeklyReport {
   trendAnalysis: string;
   aiRecommendations: string[];
 }
+
+// ==========================================
+// AUTHENTICATION & SCHOOL REGISTRATION
+// ==========================================
+
+export interface AuthUser extends User {
+  password?: string;
+}
+
+export interface SchoolRegistrationData {
+  school: {
+    name: string;
+    type: 'college' | 'lycee' | 'complexe_scolaire';
+    code: string;
+    address: string;
+    city: string;
+    country: string;
+    phone: string;
+    email: string;
+    currency: string;
+    directorName: string;
+  };
+  director: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    password?: string;
+  };
+  academicDirector: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    cycle: 'college' | 'lycee' | 'complexe';
+    password?: string;
+  };
+  educator: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    assignedClassIds: string[];
+    password?: string;
+  };
+}
+

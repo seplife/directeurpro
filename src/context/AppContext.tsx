@@ -27,7 +27,9 @@ import {
   EducatorDailySummary,
   EducatorWeeklyReport,
   ParentContactRecord,
-  DisciplinaryEvent
+  DisciplinaryEvent,
+  AuthUser,
+  SchoolRegistrationData
 } from '../types';
 import {
   INITIAL_SCHOOL,
@@ -56,6 +58,7 @@ import { SummaryService } from '../services/directorAssistant/summaryService';
 import { EducatorChronogramService } from '../services/educatorAssistant/educatorChronogramService';
 import { EducatorDailySummaryService } from '../services/educatorAssistant/educatorDailySummaryService';
 import { EducatorWeeklyReportService } from '../services/educatorAssistant/educatorWeeklyReportService';
+import { AutomationEngine } from '../services/automation/automationEngine';
 
 interface AppContextType {
   school: School;
@@ -83,6 +86,15 @@ interface AppContextType {
   recordPayment: (payment: Omit<Payment, 'id' | 'receiptNumber' | 'paymentDate' | 'status'>) => void;
   addWhatIfScenario: (scenario: WhatIfScenario) => void;
   logAIOperation: (agentName: string, queryOrAction: string, dataEntities: string[], confidence: number) => void;
+
+  // --- Real-time Automation & Simulation Engine ---
+  simulatedTime: string | null;
+  setSimulatedTime: (time: string | null) => void;
+  triggerSimulatedPayment: (studentId?: string, amount?: number) => void;
+  triggerSimulatedStudentAbsence: (studentId?: string) => void;
+  triggerSimulatedTeacherAbsence: () => void;
+  triggerFullSchoolDayAutomation: () => void;
+  resetToDefaultData: () => void;
 
   // --- Director Assistant (Agent de Pilotage Pédagogique) ---
   directorTasks: DirectorTask[];
@@ -124,6 +136,12 @@ interface AppContextType {
   handleDisciplinaryEvent: (eventId: string, status: DisciplinaryEvent['status'], sanctionNotes?: string) => void;
   getEducatorDailySummary: (educatorId?: string, date?: Date) => EducatorDailySummary;
   getEducatorWeeklyReport: (educatorId?: string) => EducatorWeeklyReport;
+  // --- Authentication & School Onboarding ---
+  isAuthenticated: boolean;
+  registeredSchools: School[];
+  login: (email: string, password?: string) => { success: boolean; message: string; user?: User };
+  logout: () => void;
+  registerSchoolWithStaff: (data: SchoolRegistrationData) => { success: boolean; message: string; user?: User };
 }
 
 const ASSISTANT_ALLOWED_ROLES: UserRole[] = ['academic_director', 'director', 'super_admin'];
@@ -194,9 +212,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // --- Virtual Clock / Time Simulation state ---
+  const [simulatedTime, setSimulatedTime] = useState<string | null>(null);
+
+  // Live dynamic recalculation of ranks, risk scores and class metrics
   const updateStudentGrade = (studentId: string, newAverage: number) => {
-    setStudents(prev =>
-      prev.map(s => {
+    setStudents(prev => {
+      const updated = prev.map(s => {
         if (s.id === studentId) {
           const trend = newAverage > s.overallAverage ? 'up' : newAverage < s.overallAverage ? 'down' : 'stable';
           const evaluation = StudentRiskAgent.evaluateStudent({
@@ -216,9 +238,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         }
         return s;
-      })
-    );
+      });
+
+      const recomputed = AutomationEngine.recalculateStudentsRankAndMetrics(updated);
+      setClasses(currClasses => AutomationEngine.recalculateClassMetrics(currClasses, recomputed));
+      return recomputed;
+    });
+
+    logAIOperation('PedagogyEngine', `Modification de moyenne pour élève ${studentId} : ${newAverage}/20 (Reclassement dynamique)`, ['Students', 'Classes'], 95);
   };
+
+  // Recalculate School Health Score dynamically whenever core entities change
+  useEffect(() => {
+    const liveScore = AutomationEngine.computeLiveHealthScore(students, budget, alerts, disciplinaryEvents);
+    setSchoolHealth(liveScore);
+  }, [students, budget, alerts, disciplinaryEvents]);
 
   const resolveAlert = (alertId: string) => {
     setAlerts(prev =>
@@ -273,20 +307,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'valide'
     };
 
-    setPayments(prev => [newPayment, ...prev]);
-
-    // Update budget totals
-    setBudget(prev => {
-      const newCollected = prev.totalCollectedRevenue + newPayment.amount;
-      const newDebt = Math.max(0, prev.totalExpectedRevenue - newCollected);
-      const newRecoveryRate = Number(((newCollected / prev.totalExpectedRevenue) * 100).toFixed(1));
-      return {
-        ...prev,
-        totalCollectedRevenue: newCollected,
-        totalOutstandingDebt: newDebt,
-        recoveryRate: newRecoveryRate
-      };
+    setPayments(prev => {
+      const updated = [newPayment, ...prev];
+      setBudget(currBudget => AutomationEngine.recalculateBudget(currBudget, updated));
+      return updated;
     });
+
+    logAIOperation('FinanceEngine', `Paiement enregistré : ${newPayment.amount.toLocaleString()} FCFA pour ${newPayment.studentName} (${newPayment.paymentMethod})`, ['Payments', 'Budget'], 100);
+  };
+
+  // --- Automation Simulation Triggers ---
+  const triggerSimulatedPayment = (studentId?: string, amount?: number) => {
+    const targetStudent = studentId
+      ? students.find(s => s.id === studentId) || students[0]
+      : students[Math.floor(Math.random() * students.length)];
+
+    if (!targetStudent) return;
+
+    const simPayment = AutomationEngine.createSimulatedMobileMoneyPayment(targetStudent, classes);
+    if (amount) {
+      simPayment.amount = amount;
+    }
+
+    setPayments(prev => {
+      const updated = [simPayment, ...prev];
+      setBudget(currBudget => AutomationEngine.recalculateBudget(currBudget, updated));
+      return updated;
+    });
+
+    logAIOperation('MobileMoneyGateway', `Encaissement instantané automatisé : ${simPayment.amount.toLocaleString()} FCFA de ${simPayment.studentName}`, ['Payments', 'Budget'], 100);
+  };
+
+  const triggerSimulatedStudentAbsence = (studentId?: string) => {
+    const targetStudent = studentId
+      ? students.find(s => s.id === studentId) || students[0]
+      : students[Math.floor(Math.random() * students.length)];
+
+    if (!targetStudent) return;
+
+    setStudents(prev =>
+      prev.map(s => {
+        if (s.id === targetStudent.id) {
+          const newAbs = s.unjustifiedAbsencesCount + 1;
+          const newAtt = Math.max(50, s.attendanceRate - 3.5);
+          return {
+            ...s,
+            unjustifiedAbsencesCount: newAbs,
+            attendanceRate: Math.round(newAtt * 10) / 10,
+            riskScore: Math.min(100, s.riskScore + 10),
+            riskCategory: (s.riskScore + 10 >= 70 ? 'critique' : s.riskScore + 10 >= 45 ? 'eleve' : 'modere') as Student['riskCategory'],
+            riskFactors: [...s.riskFactors, `Absence signalée à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`]
+          };
+        }
+        return s;
+      })
+    );
+
+    // Create an immediate context alert for Educator
+    const newAlert: AIAlert = {
+      id: `alt_abs_${Date.now()}`,
+      schoolId: school.id,
+      type: 'retard_eleve',
+      severity: 'moyenne',
+      status: 'active',
+      title: `Absence non justifiée : ${targetStudent.firstName} ${targetStudent.lastName} (${targetStudent.className})`,
+      description: `L'élève est signalé absent ce jour. Total des absences injustifiées : ${targetStudent.unjustifiedAbsencesCount + 1}.`,
+      impactScore: 65,
+      recommendedAction: 'Contacter le responsable légal via SMS / Appel et délivrer un billet de rentrée.',
+      sourceModule: 'attendance',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    setAlerts(prev => [newAlert, ...prev]);
+    logAIOperation('AttendanceScanner', `Absence enregistrée pour ${targetStudent.firstName} ${targetStudent.lastName} (${targetStudent.className})`, ['Students', 'Alerts'], 95);
+  };
+
+  const triggerSimulatedTeacherAbsence = () => {
+    const { absence, alert, decision } = AutomationEngine.createSimulatedTeacherAbsence(school.id, subjects);
+    setTeacherAbsences(prev => [absence, ...prev]);
+    setAlerts(prev => [alert, ...prev]);
+    setDecisions(prev => [decision, ...prev]);
+
+    logAIOperation('TimetableEngine', `Alerte absence enseignant générée : ${absence.teacherName} (${absence.subjectName}) — Substitution proposée`, ['TeacherAbsence', 'AIDecisions'], 90);
+  };
+
+  const triggerFullSchoolDayAutomation = () => {
+    // 1. Trigger 2 mobile money payments
+    triggerSimulatedPayment();
+    triggerSimulatedPayment();
+    // 2. Trigger 1 student absence
+    triggerSimulatedStudentAbsence();
+    // 3. Trigger 1 teacher absence & substitution
+    triggerSimulatedTeacherAbsence();
+
+    logAIOperation('AutomationOrchestrator', 'Exécution du cycle d’automatisation complet (Paiements, Assiduité, Remplacements et Indicateurs)', ['AllModules'], 100);
+  };
+
+  const resetToDefaultData = () => {
+    setStudents(INITIAL_STUDENTS);
+    setClasses(INITIAL_CLASSES);
+    setPayments(INITIAL_PAYMENTS);
+    setBudget(INITIAL_BUDGET);
+    setAlerts(INITIAL_ALERTS);
+    setDecisions(INITIAL_DECISIONS);
+    setTeacherAbsences(INITIAL_TEACHER_ABSENCES);
+    setDisciplinaryEvents(INITIAL_DISCIPLINARY_EVENTS);
+    setEducatorSanctions(INITIAL_EDUCATOR_SANCTIONS);
+    setParentContacts(INITIAL_PARENT_CONTACTS);
+    setSimulatedTime(null);
+    localStorage.removeItem('directeurpro_session');
+    localStorage.removeItem('directeurpro_current_user');
+
+    logAIOperation('SystemAdmin', 'Réinitialisation des données de démonstration', ['Database'], 100);
   };
 
   const addWhatIfScenario = (scenario: WhatIfScenario) => {
@@ -647,6 +780,189 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  // --- Authentication & School Registration state ---
+  const [registeredSchools, setRegisteredSchools] = useState<School[]>(() => {
+    const saved = localStorage.getItem('directeurpro_schools');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [INITIAL_SCHOOL];
+  });
+
+  const [registeredUsers, setRegisteredUsers] = useState<(User & { password?: string })[]>(() => {
+    const saved = localStorage.getItem('directeurpro_users');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return INITIAL_USERS.map(u => ({ ...u, password: 'password123' }));
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const session = localStorage.getItem('directeurpro_session');
+    return session === 'active';
+  });
+
+  // Save schools and users to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('directeurpro_schools', JSON.stringify(registeredSchools));
+  }, [registeredSchools]);
+
+  useEffect(() => {
+    localStorage.setItem('directeurpro_users', JSON.stringify(registeredUsers));
+  }, [registeredUsers]);
+
+  const login = (email: string, password?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const foundUser = registeredUsers.find(u => u.email.toLowerCase() === cleanEmail);
+
+    if (!foundUser) {
+      return { success: false, message: `Aucun compte associé à l'adresse ${email}.` };
+    }
+
+    if (password && foundUser.password && foundUser.password !== password) {
+      return { success: false, message: 'Mot de passe incorrect. Veuillez vérifier vos identifiants.' };
+    }
+
+    const userSchool = registeredSchools.find(s => s.id === foundUser.schoolId) || INITIAL_SCHOOL;
+
+    setCurrentUser(foundUser);
+    setSchool(userSchool);
+    setIsAuthenticated(true);
+    setActiveTab('dashboard');
+    localStorage.setItem('directeurpro_session', 'active');
+    localStorage.setItem('directeurpro_current_user', JSON.stringify(foundUser));
+
+    logAIOperation('AuthEngine', `Connexion réussie : ${foundUser.firstName} ${foundUser.lastName} (${foundUser.role})`, ['Users', 'Schools'], 100);
+
+    return {
+      success: true,
+      message: `Bienvenue, ${foundUser.firstName} ${foundUser.lastName} !`,
+      user: foundUser
+    };
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('directeurpro_session');
+    localStorage.removeItem('directeurpro_current_user');
+  };
+
+  const registerSchoolWithStaff = (data: SchoolRegistrationData) => {
+    const schoolId = `school_${Date.now()}`;
+    const dateNow = new Date().toISOString();
+
+    const newSchool: School = {
+      id: schoolId,
+      name: data.school.name,
+      type: data.school.type,
+      code: data.school.code || `SCH-${Math.floor(1000 + Math.random() * 9000)}`,
+      address: data.school.address || 'Abidjan',
+      city: data.school.city || 'Abidjan',
+      country: data.school.country || "Côte d'Ivoire",
+      currency: data.school.currency || 'FCFA',
+      logoUrl: 'https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=120&auto=format&fit=crop&q=80',
+      directorName: `${data.director.firstName} ${data.director.lastName}`,
+      phone: data.school.phone || data.director.phone,
+      email: data.school.email || data.director.email,
+      currentAcademicYearId: 'ay_2025_2026',
+      settings: {
+        systemType: 'ivoirien',
+        periodType: 'trimestre',
+        enableMobileMoney: true,
+        aiDecisionEngineActive: true
+      }
+    };
+
+    // 1. Director User
+    const directorUser: User & { password?: string } = {
+      id: `u_dir_${Date.now()}`,
+      email: data.director.email.trim().toLowerCase(),
+      firstName: data.director.firstName.trim(),
+      lastName: data.director.lastName.trim(),
+      role: 'director',
+      schoolId: schoolId,
+      phone: data.director.phone,
+      password: data.director.password || 'password123'
+    };
+
+    // 2. Academic Director User (DE)
+    const academicDirectorUserCreated: User & { password?: string } = {
+      id: `u_cde_${Date.now()}`,
+      email: data.academicDirector.email.trim().toLowerCase(),
+      firstName: data.academicDirector.firstName.trim(),
+      lastName: data.academicDirector.lastName.trim(),
+      role: 'academic_director',
+      schoolId: schoolId,
+      phone: data.academicDirector.phone,
+      password: data.academicDirector.password || 'password123'
+    };
+
+    // 3. Educator User
+    const educatorUser: User & { password?: string } = {
+      id: `u_educ_${Date.now()}`,
+      email: data.educator.email.trim().toLowerCase(),
+      firstName: data.educator.firstName.trim(),
+      lastName: data.educator.lastName.trim(),
+      role: 'counselor',
+      schoolId: schoolId,
+      phone: data.educator.phone,
+      password: data.educator.password || 'password123'
+    };
+
+    // Generate DE tasks
+    const newDeTasks = ChronogramService.generateTasksForDate(
+      new Date(),
+      academicDirectorUserCreated.id,
+      schoolId,
+      INITIAL_ASSISTANT_SETTINGS
+    );
+
+    // Generate Educator tasks
+    const newEducatorTasks = EducatorChronogramService.generateTasksForDate(
+      new Date(),
+      educatorUser.id,
+      schoolId,
+      {
+        ...INITIAL_EDUCATOR_SETTINGS,
+        assignedClassIds: data.educator.assignedClassIds || ['c_6a', 'c_3a']
+      }
+    );
+
+    setRegisteredSchools(prev => [newSchool, ...prev]);
+    setRegisteredUsers(prev => [directorUser, academicDirectorUserCreated, educatorUser, ...prev]);
+    setDirectorTasks(prev => [...prev, ...newDeTasks]);
+    setEducatorTasks(prev => [...prev, ...newEducatorTasks]);
+
+    // Connect as the Director of the newly registered school
+    setSchool(newSchool);
+    setCurrentUser(directorUser);
+    setIsAuthenticated(true);
+    setActiveTab('dashboard');
+    localStorage.setItem('directeurpro_session', 'active');
+    localStorage.setItem('directeurpro_current_user', JSON.stringify(directorUser));
+
+    logAIOperation(
+      'OnboardingOrchestrator',
+      `Inscription complète : ${newSchool.name} avec Directeur (${directorUser.firstName} ${directorUser.lastName}), DE (${academicDirectorUserCreated.firstName} ${academicDirectorUserCreated.lastName}) et Éducateur (${educatorUser.firstName} ${educatorUser.lastName})`,
+      ['Schools', 'Users', 'Chronograms'],
+      100
+    );
+
+    return {
+      success: true,
+      message: `Établissement « ${newSchool.name} » inscrit avec succès ! Bienvenue ${directorUser.firstName}.`,
+      user: directorUser
+    };
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -663,7 +979,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dailyBrief,
         whatIfScenarios,
         currentUser,
-        allUsers: INITIAL_USERS,
+        allUsers: registeredUsers,
         auditLogs,
         activeTab,
         setActiveTab,
@@ -711,7 +1027,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         recordParentContact,
         handleDisciplinaryEvent,
         getEducatorDailySummary,
-        getEducatorWeeklyReport
+        getEducatorWeeklyReport,
+        isAuthenticated,
+        registeredSchools,
+        login,
+        logout,
+        registerSchoolWithStaff,
+        simulatedTime,
+        setSimulatedTime,
+        triggerSimulatedPayment,
+        triggerSimulatedStudentAbsence,
+        triggerSimulatedTeacherAbsence,
+        triggerFullSchoolDayAutomation,
+        resetToDefaultData
       }}
     >
       {children}
@@ -726,4 +1054,5 @@ export const useApp = () => {
   }
   return context;
 };
+
 

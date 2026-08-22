@@ -6,12 +6,20 @@ import { EducatorAlertService } from '../services/educatorAssistant/educatorAler
 
 export function useEducatorAssistant() {
   const app = useApp();
-  const [now, setNow] = useState(() => new Date());
+  const [realNow, setRealNow] = useState(() => new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30_000);
+    const id = setInterval(() => setRealNow(new Date()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  const now = useMemo(() => {
+    if (!app.simulatedTime) return realNow;
+    const [hours, minutes] = app.simulatedTime.split(':').map(Number);
+    const d = new Date(realNow);
+    d.setHours(hours, minutes, 0, 0);
+    return d;
+  }, [realNow, app.simulatedTime]);
 
   const effectiveEducatorId =
     app.currentUser.role === 'counselor'

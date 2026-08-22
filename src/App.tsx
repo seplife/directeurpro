@@ -15,6 +15,8 @@ import { ReportsModule } from './components/reports/ReportsModule';
 import { SettingsModule } from './components/settings/SettingsModule';
 import { AssistantModule } from './components/directorAssistant/AssistantModule';
 import { EducatorAssistantModule } from './components/educatorAssistant/EducatorAssistantModule';
+import { AuthModule } from './components/auth/AuthModule';
+import { AutomationControlBar } from './components/common/AutomationControlBar';
 import { ShieldAlert } from 'lucide-react';
 
 const RestrictedAccess: React.FC<{ message?: string }> = ({ message }) => (
@@ -39,6 +41,7 @@ const MainLayout: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-950/80">
           <div className="max-w-7xl mx-auto">
+            <AutomationControlBar />
             {activeTab === 'dashboard' && <ExecutiveCockpit />}
             {activeTab === 'vigilance' && <VigilanceCenter />}
             {activeTab === 'decisions' && <DecisionCenter />}
@@ -71,10 +74,20 @@ const MainLayout: React.FC = () => {
   );
 };
 
+const AppContent: React.FC = () => {
+  const { isAuthenticated } = useApp();
+
+  if (!isAuthenticated) {
+    return <AuthModule />;
+  }
+
+  return <MainLayout />;
+};
+
 export function App() {
   return (
     <AppProvider>
-      <MainLayout />
+      <AppContent />
     </AppProvider>
   );
 }
