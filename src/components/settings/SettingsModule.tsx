@@ -9,12 +9,13 @@ import {
   Check,
   Sparkles,
   Lock,
-  FileCheck
+  FileCheck,
+  Bot
 } from 'lucide-react';
 
 export const SettingsModule: React.FC = () => {
-  const { school, subjects, auditLogs } = useApp();
-  const [activeSubTab, setActiveSubTab] = useState<'etablissement' | 'coefficients' | 'saas' | 'audit'>('etablissement');
+  const { school, subjects, auditLogs, canAccessDirectorAssistant, assistantSettings, updateAssistantSettings } = useApp();
+  const [activeSubTab, setActiveSubTab] = useState<'etablissement' | 'coefficients' | 'saas' | 'audit' | 'assistant'>('etablissement');
 
   const saasPlans = [
     {
@@ -108,6 +109,18 @@ export const SettingsModule: React.FC = () => {
         >
           Journal d'Audit IA ({auditLogs.length})
         </button>
+
+        {canAccessDirectorAssistant && (
+          <button
+            onClick={() => setActiveSubTab('assistant')}
+            className={`px-4 py-2 rounded-xl transition-all flex items-center space-x-1.5 ${
+              activeSubTab === 'assistant' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Bot className="w-3.5 h-3.5" />
+            <span>Assistant du Directeur des Études</span>
+          </button>
+        )}
       </div>
 
       {/* Tab Content */}
@@ -265,6 +278,142 @@ export const SettingsModule: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+      {activeSubTab === 'assistant' && canAccessDirectorAssistant && (
+        <div className="glass-panel p-6 rounded-2xl border border-slate-800 space-y-6 max-w-2xl">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+              <Bot className="w-4 h-4 text-brand-400" />
+              <span>Réglages de l'Assistant DE</span>
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Personnalisez le comportement des rappels et alertes de l'agent de pilotage pédagogique.
+            </p>
+          </div>
+
+          <div className="space-y-4 text-xs">
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1">Nom de l'assistant :</label>
+              <input
+                type="text"
+                value={assistantSettings.assistantName}
+                onChange={(e) => updateAssistantSettings({ assistantName: e.target.value })}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Début de journée :</label>
+                <input
+                  type="time"
+                  value={assistantSettings.dayStartTime}
+                  onChange={(e) => updateAssistantSettings({ dayStartTime: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Fin de journée :</label>
+                <input
+                  type="time"
+                  value={assistantSettings.dayEndTime}
+                  onChange={(e) => updateAssistantSettings({ dayEndTime: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Rappel avant tâche (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={60}
+                  value={assistantSettings.remindBeforeTaskMinutes}
+                  onChange={(e) => updateAssistantSettings({ remindBeforeTaskMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Rappel intermédiaire (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={assistantSettings.intermediateReminderDelayMinutes}
+                  onChange={(e) => updateAssistantSettings({ intermediateReminderDelayMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Alerte urgente après (min) :</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={180}
+                  value={assistantSettings.overdueAlertDelayMinutes}
+                  onChange={(e) => updateAssistantSettings({ overdueAlertDelayMinutes: Number(e.target.value) })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-semibold mb-2">Jours ouvrables du chronogramme :</label>
+              <div className="flex items-center space-x-2">
+                {[
+                  { day: 1, label: 'Lun' },
+                  { day: 2, label: 'Mar' },
+                  { day: 3, label: 'Mer' },
+                  { day: 4, label: 'Jeu' },
+                  { day: 5, label: 'Ven' },
+                  { day: 6, label: 'Sam' },
+                  { day: 7, label: 'Dim' }
+                ].map(({ day, label }) => {
+                  const isActive = assistantSettings.activeDaysOfWeek.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        const next = isActive
+                          ? assistantSettings.activeDaysOfWeek.filter(d => d !== day)
+                          : [...assistantSettings.activeDaysOfWeek, day].sort();
+                        updateAssistantSettings({ activeDaysOfWeek: next });
+                      }}
+                      className={`w-10 h-10 rounded-lg text-[11px] font-bold transition-all ${
+                        isActive ? 'bg-brand-600 text-white' : 'bg-slate-900 text-slate-500 border border-slate-800'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+              <div>
+                <span className="text-slate-200 font-semibold block">Notifications de l'assistant</span>
+                <span className="text-[11px] text-slate-500">Activer les rappels normaux, intermédiaires et alertes.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => updateAssistantSettings({ notificationsEnabled: !assistantSettings.notificationsEnabled })}
+                className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                  assistantSettings.notificationsEnabled ? 'bg-brand-600' : 'bg-slate-700'
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                    assistantSettings.notificationsEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       )}

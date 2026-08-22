@@ -17,7 +17,9 @@ import {
   SchoolHealthScore,
   DailyIntelligenceBrief,
   WhatIfScenario,
-  User
+  User,
+  DirectorAssistantSettings,
+  TeacherAbsence
 } from '../../types';
 
 export const INITIAL_SCHOOL: School = {
@@ -537,6 +539,46 @@ export const INITIAL_BUDGET: SchoolBudget = {
   recoveryRate: 75.4, // %
   financialHealthScore: 78
 };
+
+export const INITIAL_ASSISTANT_SETTINGS: DirectorAssistantSettings = {
+  assistantName: 'Assistant DE — Agent de Pilotage Pédagogique',
+  dayStartTime: '06:45',
+  dayEndTime: '17:15',
+  remindBeforeTaskMinutes: 5,
+  intermediateReminderDelayMinutes: 10,
+  overdueAlertDelayMinutes: 20,
+  notificationsEnabled: true,
+  browserNotificationsEnabled: false,
+  activeDaysOfWeek: [1, 2, 3, 4, 5, 6]
+};
+
+// Local date key generator (mirrors ChronogramService.toDateKey) — avoids
+// UTC/local mismatches that toISOString() would introduce near midnight.
+const todayLocalDateKey = (): string => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// Seed data so the assistant's contextual detection (§11-13) has a real
+// case to react to on first load, instead of an empty state.
+export const INITIAL_TEACHER_ABSENCES: TeacherAbsence[] = [
+  {
+    id: 'tabs_01',
+    schoolId: 'school_abidjan_01',
+    teacherId: 't_yao',
+    teacherName: 'M. Serge Yao',
+    classId: 'c_td',
+    className: 'Terminale D (BAC)',
+    subjectName: 'Physique-Chimie',
+    date: todayLocalDateKey(),
+    timeSlot: '07:00 - 09:00',
+    reason: 'Absence non justifiée (aucun message reçu)',
+    status: 'non_traitee'
+  }
+];
 
 export const INITIAL_PAYMENTS: Payment[] = [
   {

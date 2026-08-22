@@ -28,6 +28,7 @@ import {
   Bar,
   Legend
 } from 'recharts';
+import { DirectorAssistantWidget } from '../directorAssistant/DirectorAssistantWidget';
 
 export const ExecutiveCockpit: React.FC = () => {
   const {
@@ -40,7 +41,8 @@ export const ExecutiveCockpit: React.FC = () => {
     students,
     classes,
     setActiveTab,
-    acceptDecision
+    acceptDecision,
+    canAccessDirectorAssistant
   } = useApp();
 
   const criticalAlerts = alerts.filter(a => a.severity === 'critique' && a.status === 'active');
@@ -290,6 +292,8 @@ export const ExecutiveCockpit: React.FC = () => {
 
         {/* Right Column (1/3): Urgent Decisions & Live Alerts */}
         <div className="space-y-6">
+          {canAccessDirectorAssistant && <DirectorAssistantWidget />}
+
           {/* Urgent AI Decisions Awaiting Director Validation */}
           <div className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-4">
             <div className="flex items-center justify-between">

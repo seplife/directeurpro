@@ -14,7 +14,12 @@ import {
   WhatIfScenario,
   User,
   UserRole,
-  AIAuditLog
+  AIAuditLog,
+  DirectorTask,
+  DirectorAssistantSettings,
+  TeacherAbsence,
+  DirectorAssistantLogEntry,
+  DirectorDailySummary
 } from '../types';
 import {
   INITIAL_SCHOOL,
@@ -28,10 +33,14 @@ import {
   INITIAL_DECISIONS,
   INITIAL_BUDGET,
   INITIAL_PAYMENTS,
-  INITIAL_WHAT_IF_SCENARIOS
+  INITIAL_WHAT_IF_SCENARIOS,
+  INITIAL_ASSISTANT_SETTINGS,
+  INITIAL_TEACHER_ABSENCES
 } from '../services/db/mockData';
 import { SchoolHealthService } from '../services/ai/schoolHealthService';
 import { StudentRiskAgent } from '../services/ai/agents/studentRiskAgent';
+import { ChronogramService } from '../services/directorAssistant/chronogramService';
+import { SummaryService } from '../services/directorAssistant/summaryService';
 
 interface AppContextType {
   school: School;
@@ -59,7 +68,24 @@ interface AppContextType {
   recordPayment: (payment: Omit<Payment, 'id' | 'receiptNumber' | 'paymentDate' | 'status'>) => void;
   addWhatIfScenario: (scenario: WhatIfScenario) => void;
   logAIOperation: (agentName: string, queryOrAction: string, dataEntities: string[], confidence: number) => void;
+
+  // --- Director Assistant (Agent de Pilotage Pédagogique) ---
+  directorTasks: DirectorTask[];
+  assistantSettings: DirectorAssistantSettings;
+  teacherAbsences: TeacherAbsence[];
+  assistantLogs: DirectorAssistantLogEntry[];
+  canAccessDirectorAssistant: boolean;
+  startTask: (taskId: string) => void;
+  completeTask: (taskId: string, note?: string) => void;
+  postponeTask: (taskId: string, newStartTime: string, newEndTime: string) => void;
+  skipTask: (taskId: string) => void;
+  addTaskNote: (taskId: string, note: string) => void;
+  addCustomTask: (task: Pick<DirectorTask, 'title' | 'description' | 'startTime' | 'endTime' | 'priority' | 'category'>) => void;
+  updateAssistantSettings: (settings: Partial<DirectorAssistantSettings>) => void;
+  getDailySummary: (date?: Date) => DirectorDailySummary;
 }
+
+const ASSISTANT_ALLOWED_ROLES: UserRole[] = ['academic_director', 'director', 'super_admin'];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -93,6 +119,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: '2026-08-20T06:30:00Z'
     }
   ]);
+
+  // --- Director Assistant state ---
+  const [assistantSettings, setAssistantSettings] = useState<DirectorAssistantSettings>(INITIAL_ASSISTANT_SETTINGS);
+  const [teacherAbsences] = useState<TeacherAbsence[]>(INITIAL_TEACHER_ABSENCES);
+  const [assistantLogs, setAssistantLogs] = useState<DirectorAssistantLogEntry[]>([]);
+  const academicDirectorUser = INITIAL_USERS.find(u => u.role === 'academic_director') || INITIAL_USERS[0];
+  const [directorTasks, setDirectorTasks] = useState<DirectorTask[]>(() =>
+    ChronogramService.generateTasksForDate(new Date(), academicDirectorUser.id, INITIAL_SCHOOL.id, INITIAL_ASSISTANT_SETTINGS)
+  );
 
   // Recalculate School Health Score when students, alerts or budget change
   useEffect(() => {
@@ -230,6 +265,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuditLogs(prev => [newLog, ...prev]);
   };
 
+  // --- Director Assistant actions ---
+
+  const canAccessDirectorAssistant = ASSISTANT_ALLOWED_ROLES.includes(currentUser.role);
+
+  const logAssistant = (action: DirectorAssistantLogEntry['action'], detail: string, taskId?: string) => {
+    const entry: DirectorAssistantLogEntry = {
+      id: `dalog_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      schoolId: school.id,
+      userId: currentUser.id,
+      taskId,
+      action,
+      detail,
+      timestamp: new Date().toISOString()
+    };
+    setAssistantLogs(prev => [entry, ...prev]);
+  };
+
+  const startTask = (taskId: string) => {
+    setDirectorTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, status: 'active', updatedAt: new Date().toISOString() } : t))
+    );
+    const task = directorTasks.find(t => t.id === taskId);
+    logAssistant('task_started', `Tâche démarrée : ${task?.title || taskId}`, taskId);
+  };
+
+  const completeTask = (taskId: string, note?: string) => {
+    setDirectorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: 'completed',
+              completedAt: new Date().toISOString(),
+              notes: note ? `${t.notes ? t.notes + ' | ' : ''}${note}` : t.notes,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+    const task = directorTasks.find(t => t.id === taskId);
+    logAssistant('task_completed', `Tâche terminée : ${task?.title || taskId}`, taskId);
+  };
+
+  const postponeTask = (taskId: string, newStartTime: string, newEndTime: string) => {
+    setDirectorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? {
+              ...t,
+              status: 'postponed',
+              startTime: newStartTime,
+              endTime: newEndTime,
+              postponedUntil: newStartTime,
+              updatedAt: new Date().toISOString()
+            }
+          : t
+      )
+    );
+    const task = directorTasks.find(t => t.id === taskId);
+    logAssistant('task_postponed', `Tâche « ${task?.title || taskId} » reportée à ${newStartTime}.`, taskId);
+  };
+
+  const skipTask = (taskId: string) => {
+    setDirectorTasks(prev =>
+      prev.map(t => (t.id === taskId ? { ...t, status: 'skipped', updatedAt: new Date().toISOString() } : t))
+    );
+    const task = directorTasks.find(t => t.id === taskId);
+    logAssistant('task_skipped', `Tâche ignorée : ${task?.title || taskId}`, taskId);
+  };
+
+  const addTaskNote = (taskId: string, note: string) => {
+    setDirectorTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? { ...t, notes: t.notes ? `${t.notes} | ${note}` : note, updatedAt: new Date().toISOString() }
+          : t
+      )
+    );
+    logAssistant('note_added', `Note ajoutée : ${note}`, taskId);
+  };
+
+  const addCustomTask = (task: Pick<DirectorTask, 'title' | 'description' | 'startTime' | 'endTime' | 'priority' | 'category'>) => {
+    const dateKey = ChronogramService.toDateKey(new Date());
+    const now = new Date().toISOString();
+    const newTask: DirectorTask = {
+      id: `dtask_custom_${Date.now()}`,
+      schoolId: school.id,
+      userId: academicDirectorUser.id,
+      taskDate: dateKey,
+      title: task.title,
+      description: task.description,
+      checklist: [],
+      startTime: task.startTime,
+      endTime: task.endTime,
+      originalStartTime: task.startTime,
+      priority: task.priority,
+      status: 'pending',
+      category: task.category,
+      isCustom: true,
+      createdAt: now,
+      updatedAt: now
+    };
+    setDirectorTasks(prev => [...prev, newTask].sort((a, b) => a.startTime.localeCompare(b.startTime)));
+    logAssistant('task_created', `Tâche personnalisée créée : ${task.title}`);
+  };
+
+  const updateAssistantSettings = (settings: Partial<DirectorAssistantSettings>) => {
+    setAssistantSettings(prev => ({ ...prev, ...settings }));
+  };
+
+  const getDailySummary = (date: Date = new Date()) => {
+    const summary = SummaryService.generateDailySummary(directorTasks, teacherAbsences, students, date);
+    return summary;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -257,7 +407,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rejectDecision,
         recordPayment,
         addWhatIfScenario,
-        logAIOperation
+        logAIOperation,
+        directorTasks,
+        assistantSettings,
+        teacherAbsences,
+        assistantLogs,
+        canAccessDirectorAssistant,
+        startTask,
+        completeTask,
+        postponeTask,
+        skipTask,
+        addTaskNote,
+        addCustomTask,
+        updateAssistantSettings,
+        getDailySummary
       }}
     >
       {children}

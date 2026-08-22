@@ -347,3 +347,103 @@ export interface AIAuditLog {
   confidenceScore: number;
   timestamp: string;
 }
+
+// ==========================================
+// DIRECTOR ASSISTANT (AGENT DE PILOTAGE PÉDAGOGIQUE)
+// ==========================================
+
+export type DirectorTaskStatus =
+  | 'pending'    // à venir, hors créneau
+  | 'active'     // dans son créneau horaire actuel
+  | 'completed'  // marquée terminée par l'utilisateur
+  | 'postponed'  // reportée à une nouvelle heure
+  | 'skipped'    // ignorée volontairement
+  | 'overdue';   // créneau dépassé sans action
+
+export type DirectorTaskPriority = 'faible' | 'moyenne' | 'haute' | 'critique';
+
+export type DirectorTaskCategory =
+  | 'preparation'
+  | 'attendance'
+  | 'supervision'
+  | 'pedagogy'
+  | 'students'
+  | 'administration'
+  | 'reporting';
+
+export interface DirectorTaskChecklistItem {
+  id: string;
+  label: string;
+}
+
+export interface DirectorTask {
+  id: string;
+  schoolId: string;
+  userId: string;       // Directeur des Études (ou rôle autorisé) concerné
+  taskDate: string;      // "2026-08-22"
+  title: string;
+  description: string;
+  checklist: DirectorTaskChecklistItem[];
+  startTime: string;     // "07:00"
+  endTime: string;       // "07:15"
+  originalStartTime: string; // conservée pour l'historique en cas de report
+  priority: DirectorTaskPriority;
+  status: DirectorTaskStatus;
+  category: DirectorTaskCategory;
+  isCustom: boolean;
+  completedAt?: string;
+  postponedUntil?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DirectorAssistantSettings {
+  assistantName: string;
+  dayStartTime: string; // "06:45"
+  dayEndTime: string;   // "17:15"
+  remindBeforeTaskMinutes: number; // ex: 5
+  intermediateReminderDelayMinutes: number; // ex: 10
+  overdueAlertDelayMinutes: number; // ex: 20
+  notificationsEnabled: boolean;
+  browserNotificationsEnabled: boolean;
+  activeDaysOfWeek: number[]; // 1=Lundi ... 6=Samedi
+}
+
+export interface TeacherAbsence {
+  id: string;
+  schoolId: string;
+  teacherId: string;
+  teacherName: string;
+  classId: string;
+  className: string;
+  subjectName: string;
+  date: string;
+  timeSlot: string;
+  reason?: string;
+  status: 'non_traitee' | 'remplacement_organise' | 'cours_suspendu';
+}
+
+export interface DirectorAssistantLogEntry {
+  id: string;
+  schoolId: string;
+  userId: string;
+  taskId?: string;
+  action: 'task_created' | 'reminder_sent' | 'task_started' | 'task_completed' | 'task_postponed' | 'task_skipped' | 'note_added' | 'recommendation_generated' | 'daily_summary_generated';
+  detail: string;
+  timestamp: string;
+}
+
+export interface DirectorDailySummary {
+  date: string;
+  tasksPlanned: number;
+  tasksCompleted: number;
+  tasksPostponed: number;
+  tasksNotDone: number;
+  executionRate: number; // %
+  teachersAbsent: number;
+  coursesNotCovered: number;
+  studentsNeedingAttention: number;
+  incidentsCount: number;
+  tomorrowPriorities: string[];
+}

@@ -13,9 +13,21 @@ import { FinanceModule } from './components/finance/FinanceModule';
 import { TimetableModule } from './components/timetable/TimetableModule';
 import { ReportsModule } from './components/reports/ReportsModule';
 import { SettingsModule } from './components/settings/SettingsModule';
+import { AssistantModule } from './components/directorAssistant/AssistantModule';
+import { ShieldAlert } from 'lucide-react';
+
+const RestrictedAccess: React.FC = () => (
+  <div className="glass-panel p-10 rounded-2xl border border-slate-800 text-center space-y-3 max-w-lg mx-auto mt-10">
+    <ShieldAlert className="w-8 h-8 text-rose-400 mx-auto" />
+    <h3 className="text-sm font-bold text-white">Accès restreint</h3>
+    <p className="text-xs text-slate-400">
+      L’Assistant du Directeur des Études est réservé au Directeur des Études, au Directeur et aux administrateurs de la plateforme.
+    </p>
+  </div>
+);
 
 const MainLayout: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, canAccessDirectorAssistant } = useApp();
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -37,6 +49,7 @@ const MainLayout: React.FC = () => {
             {activeTab === 'timetable' && <TimetableModule />}
             {activeTab === 'reports' && <ReportsModule />}
             {activeTab === 'settings' && <SettingsModule />}
+            {activeTab === 'assistant' && (canAccessDirectorAssistant ? <AssistantModule /> : <RestrictedAccess />)}
           </div>
         </main>
       </div>
